@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ScalaCompilerConfiguration">
+    <profile name="sbt 1" modules="0XXX_TRAF_STREAMING_EB,0xxx_traf_streaming_eb" />
+  </component>
+</project>

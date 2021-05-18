@@ -1,0 +1,4 @@
+[warn] insecure HTTP request is deprecated 'http://central.maven.org/maven2/'; switch to HTTPS or opt-in as ("Java.net Maven2 Repository" at "http://central.maven.org/maven2/").withAllowInsecureProtocol(true)
+[warn] insecure HTTP request is deprecated 'http://repo.odysseusinc.com/artifactory/community-libs-release-local/'; switch to HTTPS or opt-in as ("Odysseus" at "http://repo.odysseusinc.com/artifactory/community-libs-release-local/").withAllowInsecureProtocol(true)
+[warn] insecure HTTP request is deprecated 'http://repo.hortonworks.com/content/repositories/releases/'; switch to HTTPS or opt-in as ("Hortonworks" at "http://repo.hortonworks.com/content/repositories/releases/").withAllowInsecureProtocol(true)
+[warn] insecure HTTP request is deprecated 'http://repo.hortonworks.com/content/groups/public/'; switch to HTTPS or opt-in as ("HortonworksPublics" at "http://repo.hortonworks.com/content/groups/public/").withAllowInsecureProtocol(true)
