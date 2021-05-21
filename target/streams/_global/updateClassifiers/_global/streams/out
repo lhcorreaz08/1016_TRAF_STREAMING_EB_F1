@@ -1,4 +1,4 @@
-[warn] insecure HTTP request is deprecated 'http://central.maven.org/maven2/'; switch to HTTPS or opt-in as ("Java.net Maven2 Repository" at "http://central.maven.org/maven2/").withAllowInsecureProtocol(true)
-[warn] insecure HTTP request is deprecated 'http://repo.odysseusinc.com/artifactory/community-libs-release-local/'; switch to HTTPS or opt-in as ("Odysseus" at "http://repo.odysseusinc.com/artifactory/community-libs-release-local/").withAllowInsecureProtocol(true)
-[warn] insecure HTTP request is deprecated 'http://repo.hortonworks.com/content/repositories/releases/'; switch to HTTPS or opt-in as ("Hortonworks" at "http://repo.hortonworks.com/content/repositories/releases/").withAllowInsecureProtocol(true)
-[warn] insecure HTTP request is deprecated 'http://repo.hortonworks.com/content/groups/public/'; switch to HTTPS or opt-in as ("HortonworksPublics" at "http://repo.hortonworks.com/content/groups/public/").withAllowInsecureProtocol(true)
+[warn] scala-library-2.11.8-sources.jar no longer exists at C:\Users\JoseAlfredoBalcuchoM\AppData\Local\Coursier\cache\v1\https\repo1.maven.org\maven2\org\scala-lang\scala-library\2.11.8\scala-library-2.11.8-sources.jar
+[debug] "not up to date. inChanged = false, force = false
+[debug] Updating ProjectRef(uri("file:/C:/Users/LuisHernandoCorreaZa/Documents/IntelliJ%20Proyects/0080_STREAMING_EB/"), "root-0080_streaming_eb")...
+[debug] Done updating ProjectRef(uri("file:/C:/Users/LuisHernandoCorreaZa/Documents/IntelliJ%20Proyects/0080_STREAMING_EB/"), "root-0080_streaming_eb")

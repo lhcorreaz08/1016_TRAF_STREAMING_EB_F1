@@ -30,8 +30,6 @@ import scala.sys.process._
 
 //Comentario
 
-//Comentario 2
-
 object app {
   def main(args: Array[String]): Unit = {
     //===============================================
@@ -127,6 +125,13 @@ object app {
       val tiendas_antenas_voz = ss.sql("select * from tiendas t left join celdas a on t.latitud_eb= a.latitud and t.longitud_eb= a.longitud")
       val tiendas_antenas_datos = ss.sql("select * from tiendas t left join celdas_datos a on t.latitud_eb= a.latitud and t.longitud_eb= a.longitud")
 
+
+      //Tabla de Clientes
+      val clientes = ss.sql("select '57'||tele_numb as tele_numb, estado, tipo_linea from clientes.inh_seg_bscs_clientes where estado = 'a'")
+      clientes.createOrReplaceTempView("tabla_clientes")
+      clientes.show(10)
+
+
       tiendas_antenas_voz.createOrReplaceTempView("tiendas_voz")
       tiendas_antenas_datos.createOrReplaceTempView("tiendas_datos")
 
@@ -169,7 +174,7 @@ object app {
         val df = new SimpleDateFormat("yyyyMMddHHmmss")
         val calendar = Calendar.getInstance()
         val fecha_reporte = df.format(calendar.getTime)
-        calendar.add(Calendar.MINUTE, -30);
+        calendar.add(Calendar.MINUTE, -120);
         val time_stream = df.format(calendar.getTime).toDouble
         print(".")
         val df_trafico = rdd.toDF("msg")
@@ -198,20 +203,22 @@ object app {
 
           val trafico_datos_tmp = df_datos.filter(col("time_stream").>(time_stream)).createOrReplaceTempView("trafico_datos_tmp")
 
-          val trafico_datos = ss.sql("with trafico_d as(select tele_numb, trim(cellId) cellId  , trim(idLac) idLac, record_opening_time, " +
+          val trafico_datos = ss.sql("with trafico_d as(select tele_numb , trim(cellId) cellId  , trim(idLac) idLac, record_opening_time, " +
             "row_number() over (partition by tele_numb, cellId, idLac  order by record_opening_time desc) as order_trafico " +
             "FROM  trafico_datos_tmp ) select tele_numb, cellId , idLac, record_opening_time from trafico_d  where order_trafico =1 and tele_numb like '57%'")
           trafico_datos.createOrReplaceTempView("trafico_datos")
+          trafico_datos.show(10)
+
           val total_traf_datos_reciente = trafico_datos.count()
           log("total trafico reciente datos: " + total_traf_datos_reciente)
           if (total_traf_datos_reciente > 0) {
             trafico_datos.show(10)
-            val trafico_cercano_datos = ss.sql("select tr.tele_numb || '|jvaldez|' from  trafico_datos tr inner join tiendas_datos td " +
-              "on td.celda= tr.cellId and td.lac = tr.idLac")
+            val trafico_cercano_datos = ss.sql("select tc.tipo_linea ,tr.tele_numb || '|jvaldez|' from  trafico_datos tr inner join tiendas_datos td " +
+              "on td.celda= tr.cellId and td.lac = tr.idLac inner join tabla_clientes tc on tr.tele_numb = tc.tele_numb")
             log("Total trafico reporte:" + trafico_cercano_datos.count())
             if (trafico_cercano_datos.count() > 0) {
               trafico_cercano_datos.show(10)
-              generateFile(trafico_cercano_datos, path_preprocesados + "/TMP", Nombre_archivo + fecha_reporte, ss, ss.sparkContext, path_procesados)
+              //generateFile(trafico_cercano_datos, path_preprocesados + "/TMP", Nombre_archivo + fecha_reporte, ss, ss.sparkContext, path_procesados)
             }
           }
 
