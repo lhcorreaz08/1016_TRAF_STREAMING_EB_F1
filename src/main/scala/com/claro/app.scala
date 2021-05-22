@@ -81,7 +81,7 @@ object app {
       variables_sisnot.getparamsFile(path_extrae_pr, path_fuentes, ambiente_sisnot_variables, job_name, ext, temp_folder)
       variables_sisnot.getParamsDF(path_fuentes + "/" + temp_folder + "/" + job_name + "." + ext)
 
-      log("Parámetros")
+
 
       val es_reproceso = variables_sisnot.getParamValue(job_name, "V_0XXX_REPROCESO")
       val fecha_reproceso = variables_sisnot.getParamValue(job_name, "V_0XXX_FECHA_REPROCESO")
@@ -89,11 +89,6 @@ object app {
       val path_procesados = variables_sisnot.getParamValue(job_name, "V_0XXX_PATCH_PROCESADOS")
       val path_preprocesados_tmp= variables_sisnot.getParamValue(job_name, "V_0XXX_PATCH_PREPROCESADOS_TMP")
       val Nombre_archivo= variables_sisnot.getParamValue(job_name, "V_0XXX_FILE_NAME")
-
-      log("Parámetros fin")
-
-
-
 
 
       //===============================================
@@ -129,7 +124,7 @@ object app {
       //Tabla de Clientes
       val clientes = ss.sql("select '57'||tele_numb as tele_numb, estado, tipo_linea from clientes.inh_seg_bscs_clientes where estado = 'a'")
       clientes.createOrReplaceTempView("tabla_clientes")
-      clientes.show(10)
+
 
 
       tiendas_antenas_voz.createOrReplaceTempView("tiendas_voz")
@@ -216,19 +211,43 @@ object app {
             val trafico_cercano_datos = ss.sql("select tc.tipo_linea ,tr.tele_numb || '|jvaldez|' from  trafico_datos tr inner join tiendas_datos td " +
               "on td.celda= tr.cellId and td.lac = tr.idLac inner join tabla_clientes tc on tr.tele_numb = tc.tele_numb")
             log("Total trafico reporte:" + trafico_cercano_datos.count())
-            if (trafico_cercano_datos.count() > 0) {
-              trafico_cercano_datos.show(10)
-              //generateFile(trafico_cercano_datos, path_preprocesados + "/TMP", Nombre_archivo + fecha_reporte, ss, ss.sparkContext, path_procesados)
-            }
-          }
+            trafico_cercano_datos.createOrReplaceTempView("trafico_general_datos")
+            val Num_TCD = trafico_cercano_datos.count()
+            log("tota tráfico cercano: " + Num_TCD)
 
-          //===============================================
+
+            //Tráfico cercano datos prepago
+            val trafico_segmento_datos_prep = ss.sql("select * from trafico_general_datos where tipo_linea = 'Prepago'")
+            val Num_TCDPre = trafico_segmento_datos_prep.count()
+            log("total tráfico cercano prepago: " + Num_TCDPre)
+            trafico_segmento_datos_prep.show(5)
+
+            if (Num_TCDPre > 0) {
+              generateFile(trafico_cercano_datos, path_preprocesados + "/TMP" , Nombre_archivo + fecha_reporte + "_PREP"  , ss, ss.sparkContext, path_procesados)
+              log("Archivo prepago generado")
+            }
+
+            //Tráfico cercano datos postpago
+            val trafico_segmento_datos_post = ss.sql("select * from trafico_general_datos where tipo_linea = 'Postpago'")
+            trafico_segmento_datos_post.count()
+            val Num_TCDPos = trafico_segmento_datos_post.count()
+            log("total tráfico cercano postpago: " + Num_TCDPos)
+            trafico_segmento_datos_post.show(5)
+
+
+            if (Num_TCDPos > 0) {
+              generateFile(trafico_cercano_datos, path_preprocesados + "/TMP", Nombre_archivo + fecha_reporte + "_POST", ss, ss.sparkContext, path_procesados)
+              log("Archivo postpago generado")
+            }
+
+          }
+            //===============================================
           //VOZ
           //===============================================
           log("---VOZ-------------------------------------------------")
           Try {
             val r = Seq("hdfs", "dfs", "-rm", path_preprocesados_tmp).!!
-          }
+            }
           val df_voz = df_trafico.filter(col("msg").contains("VOZ"))
             .withColumn("calling_number", split(col("msg"), ",").getItem(1))
             .withColumn("called_number", split(col("msg"), ",").getItem(2))
@@ -263,7 +282,7 @@ object app {
             log("Total trafico reporte voz:" + trafico_cercano_voz.count())
             if (trafico_cercano_voz.count() > 0) {
               trafico_cercano_voz.show(10)
-              generateFile(trafico_cercano_voz, path_preprocesados + "/TMP", Nombre_archivo + fecha_reporte, ss, ss.sparkContext, path_procesados)
+              generateFile(trafico_cercano_voz, path_preprocesados + "/TMP" , Nombre_archivo + fecha_reporte, ss, ss.sparkContext, path_procesados )
             }
           }
         }
@@ -312,7 +331,7 @@ object app {
     val fs = src.getFileSystem(conf)
     val oneFile = fs.listStatus(src).map(x => x.getPath.toString()).find(x => x.endsWith("csv"))
     val srcFile = new Path(oneFile.getOrElse(""))
-    val dest = new Path(path + "/" + filename + ".txt")
+    val dest = new Path(path  +"/"+ filename + ".txt")
     fs.rename(srcFile, dest)
     deleteFolders(path)
     log("Fin Generación Archivo: " + filename)
