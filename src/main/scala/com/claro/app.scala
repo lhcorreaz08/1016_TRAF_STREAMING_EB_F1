@@ -234,6 +234,7 @@ object app {
             log("total tráfico cercano postpago: " + Num_TCDPos)
             trafico_segmento_datos_post.show(5)
 
+            //AA
 
             if (Num_TCDPos > 0) {
               generateFile(trafico_cercano_datos, path_preprocesados + "/TMP", Nombre_archivo + fecha_reporte + "_POST", ss, ss.sparkContext, path_procesados)
