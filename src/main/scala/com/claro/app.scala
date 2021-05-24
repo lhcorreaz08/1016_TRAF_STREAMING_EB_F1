@@ -28,7 +28,6 @@ import scala.concurrent.duration.DurationInt
 import scala.util.Try
 import scala.sys.process._
 
-//Comentario
 
 object app {
   def main(args: Array[String]): Unit = {
@@ -82,13 +81,11 @@ object app {
       variables_sisnot.getParamsDF(path_fuentes + "/" + temp_folder + "/" + job_name + "." + ext)
 
 
-
-      val es_reproceso = variables_sisnot.getParamValue(job_name, "V_0XXX_REPROCESO")
-      val fecha_reproceso = variables_sisnot.getParamValue(job_name, "V_0XXX_FECHA_REPROCESO")
-      val path_preprocesados = variables_sisnot.getParamValue(job_name, "V_0XXX_PATCH_PREPROCESADOS")
-      val path_procesados = variables_sisnot.getParamValue(job_name, "V_0XXX_PATCH_PROCESADOS")
-      val path_preprocesados_tmp= variables_sisnot.getParamValue(job_name, "V_0XXX_PATCH_PREPROCESADOS_TMP")
-      val Nombre_archivo= variables_sisnot.getParamValue(job_name, "V_0XXX_FILE_NAME")
+      val path_preprocesados = variables_sisnot.getParamValue(job_name, "V_1016_PATCH_PREPROCESADOS")
+      val path_procesados = variables_sisnot.getParamValue(job_name, "V_1016_PATCH_PROCESADOS")
+      val path_preprocesados_tmp= variables_sisnot.getParamValue(job_name, "V_1016_PATCH_PREPROCESADOS_TMP")
+      val Nombre_archivo= variables_sisnot.getParamValue(job_name, "V_1016_FILE_NAME")
+      val topico = variables_sisnot.getParamValue(job_name, "V_1016_FILE_NAME")
 
 
       //===============================================
@@ -126,7 +123,6 @@ object app {
       clientes.createOrReplaceTempView("tabla_clientes")
 
 
-
       tiendas_antenas_voz.createOrReplaceTempView("tiendas_voz")
       tiendas_antenas_datos.createOrReplaceTempView("tiendas_datos")
 
@@ -135,14 +131,10 @@ object app {
       log("total tiendas voz: " + total_tiendas_voz)
       log("total tiendas datos: " + total_tiendas_datos)
 
-      val topico = "0XXX_traf_estaciones_base"
+
       //===============================================
       val topics = Array(topico)
-      //val batchInterval = Seconds(streaming_context_time.toInt)
       val batchInterval = Seconds(30)
-      //val batchesToRun = 10
-      //val path_preprocesados = "/DWH/DESARROLLO_DWH/12_TRAFICO/0XXX_TRAF_STREAMING_EB/03_FUENTES/PREPROCESADOS"
-      //val path_procesados = "/DWH/DESARROLLO_DWH/12_TRAFICO/0XXX_TRAF_STREAMING_EB/03_FUENTES/PROCESADOS"
       val streamingContext = new StreamingContext(ss.sparkContext, batchInterval)
 
 
@@ -154,7 +146,6 @@ object app {
         "auto.offset.reset" -> "latest",
         "enable.auto.commit" -> (true: java.lang.Boolean)
       )
-
 
       val stream = KafkaUtils.createDirectStream[String, String](
         streamingContext,
@@ -169,7 +160,7 @@ object app {
         val df = new SimpleDateFormat("yyyyMMddHHmmss")
         val calendar = Calendar.getInstance()
         val fecha_reporte = df.format(calendar.getTime)
-        calendar.add(Calendar.MINUTE, -120);
+        calendar.add(Calendar.MINUTE, -60);
         val time_stream = df.format(calendar.getTime).toDouble
         print(".")
         val df_trafico = rdd.toDF("msg")
@@ -202,22 +193,20 @@ object app {
             "row_number() over (partition by tele_numb, cellId, idLac  order by record_opening_time desc) as order_trafico " +
             "FROM  trafico_datos_tmp ) select tele_numb, cellId , idLac, record_opening_time from trafico_d  where order_trafico =1 and tele_numb like '57%'")
           trafico_datos.createOrReplaceTempView("trafico_datos")
-          trafico_datos.show(10)
 
           val total_traf_datos_reciente = trafico_datos.count()
           log("total trafico reciente datos: " + total_traf_datos_reciente)
           if (total_traf_datos_reciente > 0) {
             trafico_datos.show(10)
-            val trafico_cercano_datos = ss.sql("select tc.tipo_linea ,tr.tele_numb || '|jvaldez|' from  trafico_datos tr inner join tiendas_datos td " +
+            val trafico_cercano_datos = ss.sql("select tc.tipo_linea ,tr.tele_numb from  trafico_datos tr inner join tiendas_datos td " +
               "on td.celda= tr.cellId and td.lac = tr.idLac inner join tabla_clientes tc on tr.tele_numb = tc.tele_numb")
-            log("Total trafico reporte:" + trafico_cercano_datos.count())
             trafico_cercano_datos.createOrReplaceTempView("trafico_general_datos")
             val Num_TCD = trafico_cercano_datos.count()
-            log("tota tráfico cercano: " + Num_TCD)
+            log("total tráfico cercano: " + Num_TCD)
 
 
             //Tráfico cercano datos prepago
-            val trafico_segmento_datos_prep = ss.sql("select * from trafico_general_datos where tipo_linea = 'Prepago'")
+            val trafico_segmento_datos_prep = ss.sql("select tgd.tele_numb || '|jvaldez|' from trafico_general_datos tgd where tipo_linea = 'Prepago'")
             val Num_TCDPre = trafico_segmento_datos_prep.count()
             log("total tráfico cercano prepago: " + Num_TCDPre)
             trafico_segmento_datos_prep.show(5)
@@ -228,13 +217,11 @@ object app {
             }
 
             //Tráfico cercano datos postpago
-            val trafico_segmento_datos_post = ss.sql("select * from trafico_general_datos where tipo_linea = 'Postpago'")
+            val trafico_segmento_datos_post = ss.sql("select tgd.tele_numb || '|jvaldez|' from trafico_general_datos tgd where tipo_linea = 'Postpago'")
             trafico_segmento_datos_post.count()
             val Num_TCDPos = trafico_segmento_datos_post.count()
             log("total tráfico cercano postpago: " + Num_TCDPos)
             trafico_segmento_datos_post.show(5)
-
-            //AA
 
             if (Num_TCDPos > 0) {
               generateFile(trafico_cercano_datos, path_preprocesados + "/TMP", Nombre_archivo + fecha_reporte + "_POST", ss, ss.sparkContext, path_procesados)
@@ -261,7 +248,6 @@ object app {
             .withColumn("idLac", split(col("msg"), ",").getItem(8))
 
           log("total trafico voz entrante: " + df_voz.count())
-
           val trafico_voz_tmp = df_voz.filter(col("time_stream").>(time_stream)).createOrReplaceTempView("trafico_voz_tmp")
           val test = ss.sql("select start_time from trafico_voz_tmp")
           test.show(10)
@@ -276,15 +262,44 @@ object app {
 
           val total_traf_voz_reciente = trafico_voz.count()
           log("total trafico reciente voz: " + total_traf_voz_reciente)
+
+
           if (total_traf_voz_reciente > 0) {
             trafico_voz.show(10)
-            val trafico_cercano_voz = ss.sql("select tele_numb, start_time, nombre from tiendas_datos ta left join trafico_voz tv " +
-              "on ta.celda= tv.cellId and ta.lac = tv.idLac")
-            log("Total trafico reporte voz:" + trafico_cercano_voz.count())
-            if (trafico_cercano_voz.count() > 0) {
-              trafico_cercano_voz.show(10)
-              generateFile(trafico_cercano_voz, path_preprocesados + "/TMP" , Nombre_archivo + fecha_reporte, ss, ss.sparkContext, path_procesados )
+            val trafico_cercano_voz = ss.sql("select tc.tipo_linea, tv.tele_numb from  trafico_voz tv inner join tiendas_voz ta " +
+              "on ta.celda= tv.cellId and ta.lac = tv.idLac inner join tabla_clientes tc on tv.tele_numb = tc.tele_numb")
+            trafico_cercano_voz.createOrReplaceTempView("trafico_general_voz")
+            val Num_TCV = trafico_cercano_voz.count()
+            log("total tráfico cercano: " + Num_TCV)
+
+
+
+
+            //Tráfico segmentación Prepago Voz
+            val trafico_segmento_voz_prepago = ss.sql("select tgv.tele_numb || '|jvaldez|' from trafico_general_voz tgv where tipo_linea = 'Prepago'")
+            val Num_TCVPre = trafico_segmento_voz_prepago.count()
+            log("total tráfico cercano prepago: " + Num_TCVPre)
+            trafico_segmento_voz_prepago.show(5)
+
+
+            if (Num_TCVPre > 0) {
+              generateFile(trafico_segmento_voz_prepago, path_preprocesados + "/TMP", Nombre_archivo + fecha_reporte + "_PREP", ss, ss.sparkContext, path_procesados)
+              log("Archivo prepago generado")
             }
+
+
+            //Tráfico segmentación Postpago Voz
+            val trafico_segmento_voz_postpago = ss.sql("select tgv.tele_numb || '|jvaldez|' from trafico_general_voz tgv where tipo_linea = 'Postpago'")
+            val Num_TCVPos = trafico_segmento_voz_postpago.count()
+            log("total tráfico cercano postpago: " + Num_TCVPre)
+            trafico_segmento_voz_prepago.show(5)
+
+
+            if (Num_TCVPos > 0) {
+              generateFile(trafico_segmento_voz_postpago, path_preprocesados + "/TMP", Nombre_archivo + fecha_reporte + "_POST", ss, ss.sparkContext, path_procesados)
+              log("Archivo postpago generado")
+            }
+
           }
         }
       }
@@ -313,6 +328,8 @@ object app {
     }
   }
 
+
+
   def generateFile(df: DataFrame, folderTemp: String, filename: String, ss: SparkSession, sc: SparkContext, path: String) {
     log("Inicio Generación Archivo: " + filename)
     deleteFolders(path)
@@ -338,3 +355,4 @@ object app {
     log("Fin Generación Archivo: " + filename)
   }
 }
+
