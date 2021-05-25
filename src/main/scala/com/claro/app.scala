@@ -80,12 +80,12 @@ object app {
       variables_sisnot.getparamsFile(path_extrae_pr, path_fuentes, ambiente_sisnot_variables, job_name, ext, temp_folder)
       variables_sisnot.getParamsDF(path_fuentes + "/" + temp_folder + "/" + job_name + "." + ext)
 
-
+//C
       val path_preprocesados = variables_sisnot.getParamValue(job_name, "V_1016_PATCH_PREPROCESADOS")
       val path_procesados = variables_sisnot.getParamValue(job_name, "V_1016_PATCH_PROCESADOS")
       val path_preprocesados_tmp= variables_sisnot.getParamValue(job_name, "V_1016_PATCH_PREPROCESADOS_TMP")
       val Nombre_archivo= variables_sisnot.getParamValue(job_name, "V_1016_FILE_NAME")
-      val topico = variables_sisnot.getParamValue(job_name, "V_1016_FILE_NAME")
+      val topico = variables_sisnot.getParamValue(job_name, "V_1016_TOPIC")
 
 
       //===============================================

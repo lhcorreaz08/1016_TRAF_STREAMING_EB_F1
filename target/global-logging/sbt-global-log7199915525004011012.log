@@ -1,0 +1,9 @@
+[debug] > Exec(assembly, None, None)
+[debug] Evaluating tasks: assembly
+[debug] Running task... Cancel: Signal, check cycles: false, forcegc: true
+[info] compiling 1 Scala source to C:\Users\LuisHernandoCorreaZa\Documents\IntelliJ Proyects\0080_STREAMING_EB\target\scala-2.11\classes ...
+[info] done compiling
+[info] Strategy 'discard' was applied to 12 files (Run the task at debug level to see details)
+[info] Strategy 'first' was applied to a file (Run the task at debug level to see details)
+[success] Total time: 8 s, completed 21/05/2021 04:43:11 PM
+[debug] > Exec(idea-shell, None, None)

@@ -1,9 +1,9 @@
-[debug] Including from cache: slf4j-api-1.7.21.jar
-[debug] Including from cache: spark-tags_2.11-2.3.2.jar
 [debug] Including from cache: unused-1.0.0.jar
+[debug] Including from cache: spark-tags_2.11-2.3.2.jar
+[debug] Including from cache: slf4j-api-1.7.21.jar
+[debug] Including from cache: kafka-clients-0.10.0.1.jar
 [debug] Including from cache: lz4-1.3.0.jar
 [debug] Including from cache: spark-streaming-kafka-0-10_2.11-2.3.2.jar
-[debug] Including from cache: kafka-clients-0.10.0.1.jar
 [debug] Including from cache: snappy-java-1.1.2.6.jar
 [debug] Including from cache: scala-library-2.11.8.jar
 [debug] Calculate mappings...
