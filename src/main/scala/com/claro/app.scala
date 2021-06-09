@@ -35,6 +35,7 @@ object app {
     //Set level log Error
     Logger.getLogger("org").setLevel(Level.ERROR)
     //===============================================
+
     //Read sh Parameters
     log("Read SH Parameters")
     val parametros = getOptionParameters(mutable.HashMap.empty[Symbol, String], args.toList)
@@ -87,6 +88,12 @@ object app {
       val Nombre_archivo= variables_sisnot.getParamValue(job_name, "V_1016_FILE_NAME")
       val topico = variables_sisnot.getParamValue(job_name, "V_1016_TOPIC")
 
+      //Variables para validar y cargar archivo plano
+      val format = new SimpleDateFormat("d-M-y")
+      val sysdate = (format.format(Calendar.getInstance().getTime()))
+      var actual_date = ""
+      var cargado = false
+
 
       //===============================================
       //Tabla de estaciones b
@@ -117,14 +124,17 @@ object app {
       val tiendas_antenas_voz = ss.sql("select * from tiendas t left join celdas a on t.latitud_eb= a.latitud and t.longitud_eb= a.longitud")
       val tiendas_antenas_datos = ss.sql("select * from tiendas t left join celdas_datos a on t.latitud_eb= a.latitud and t.longitud_eb= a.longitud")
 
+      tiendas_antenas_voz.createOrReplaceTempView("tiendas_voz")
+      tiendas_antenas_datos.createOrReplaceTempView("tiendas_datos")
+
+
 
       //Tabla de Clientes
       val clientes = ss.sql("select '57'||tele_numb as tele_numb, estado, tipo_linea from clientes.inh_seg_bscs_clientes where estado = 'a'")
       clientes.createOrReplaceTempView("tabla_clientes")
 
 
-      tiendas_antenas_voz.createOrReplaceTempView("tiendas_voz")
-      tiendas_antenas_datos.createOrReplaceTempView("tiendas_datos")
+
 
       val total_tiendas_voz = tiendas_antenas_voz.count()
       val total_tiendas_datos = tiendas_antenas_datos.count()
@@ -164,6 +174,37 @@ object app {
         val time_stream = df.format(calendar.getTime).toDouble
         print(".")
         val df_trafico = rdd.toDF("msg")
+
+        if (!cargado)
+        {
+          if (actual_date != sysdate)
+          {
+            actual_date = sysdate
+            //Carga de tabla maestra
+            val df = ss.read
+              .format("csv")
+              .option("header", true)
+              .option("delimiter", "|")
+              .load("/DWH/DESARROLLO_DWH/12_TRAFICO/1016_TRAF_ESTACIONES_BASE/03_FUENTES/JUAN_V_EB.csv")
+            df.createOrReplaceTempView("Plane_Text_df")
+
+            val drop_table = ss.sql("DROP TABLE desarrollo.Test_Carga_EB")
+            log("Tabla Desactualizada")
+            val table_spark = ss.sql("CREATE TABLE desarrollo.Test_Carga_EB (SELECT * FROM Plane_Text_df)")
+            table_spark.show(10)
+            cargado = true
+            log("Archivo de Estaciones Base Cargado...")
+            log("Tabla Cargada")
+
+          }
+        }
+        else
+        {
+          log("Archivo de Estaciones Base Cargado Anteriormente")
+        }
+
+
+
         if (df_trafico.count() > 0) {
           log("Total trafico: " + df_trafico.count())
 
@@ -212,7 +253,10 @@ object app {
             trafico_segmento_datos_prep.show(5)
 
             if (Num_TCDPre > 0) {
-              generateFile(trafico_cercano_datos, path_preprocesados + "/TMP" , Nombre_archivo + fecha_reporte + "_PREP"  , ss, ss.sparkContext, path_procesados)
+              Try {
+                val r = Seq("hdfs", "dfs", "-rm", path_preprocesados + "/TMP/*").!!
+              }
+              generateFile(trafico_segmento_datos_prep, path_preprocesados + "/TMP" , Nombre_archivo + fecha_reporte + "_PREP", ss, ss.sparkContext, path_procesados)
               log("Archivo prepago generado")
             }
 
@@ -224,7 +268,10 @@ object app {
             trafico_segmento_datos_post.show(5)
 
             if (Num_TCDPos > 0) {
-              generateFile(trafico_cercano_datos, path_preprocesados + "/TMP", Nombre_archivo + fecha_reporte + "_POST", ss, ss.sparkContext, path_procesados)
+              Try {
+                val r = Seq("hdfs", "dfs", "-rm", path_preprocesados + "/TMP/*").!!
+              }
+              generateFile(trafico_segmento_datos_post, path_preprocesados + "/TMP", Nombre_archivo + fecha_reporte + "_POST", ss, ss.sparkContext, path_procesados)
               log("Archivo postpago generado")
             }
 
@@ -283,6 +330,9 @@ object app {
 
 
             if (Num_TCVPre > 0) {
+              Try {
+                val r = Seq("hdfs", "dfs", "-rm", path_preprocesados + "/TMP/*").!!
+              }
               generateFile(trafico_segmento_voz_prepago, path_preprocesados + "/TMP", Nombre_archivo + fecha_reporte + "_PREP", ss, ss.sparkContext, path_procesados)
               log("Archivo prepago generado")
             }
@@ -296,6 +346,9 @@ object app {
 
 
             if (Num_TCVPos > 0) {
+              Try {
+                val r = Seq("hdfs", "dfs", "-rm", path_preprocesados + "/TMP/*").!!
+              }
               generateFile(trafico_segmento_voz_postpago, path_preprocesados + "/TMP", Nombre_archivo + fecha_reporte + "_POST", ss, ss.sparkContext, path_procesados)
               log("Archivo postpago generado")
             }
@@ -354,5 +407,6 @@ object app {
     deleteFolders(path)
     log("Fin Generación Archivo: " + filename)
   }
+
 }
 
