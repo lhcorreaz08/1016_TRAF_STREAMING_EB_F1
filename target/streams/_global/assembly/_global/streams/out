@@ -1,10 +1,10 @@
-[debug] Including from cache: unused-1.0.0.jar
-[debug] Including from cache: lz4-1.3.0.jar
 [debug] Including from cache: spark-streaming-kafka-0-10_2.11-2.3.2.jar
-[debug] Including from cache: kafka-clients-0.10.0.1.jar
 [debug] Including from cache: slf4j-api-1.7.21.jar
+[debug] Including from cache: unused-1.0.0.jar
 [debug] Including from cache: spark-tags_2.11-2.3.2.jar
 [debug] Including from cache: snappy-java-1.1.2.6.jar
+[debug] Including from cache: lz4-1.3.0.jar
+[debug] Including from cache: kafka-clients-0.10.0.1.jar
 [debug] Including from cache: scala-library-2.11.8.jar
 [debug] Calculate mappings...
 [debug] Checking every *.class/*.jar file's SHA-1.
@@ -24,7 +24,7 @@
 [debug] Merging 'org\apache\spark\unused\UnusedStubClass.class' with strategy 'first'
 [info] Strategy 'discard' was applied to 12 files (Run the task at debug level to see details)
 [info] Strategy 'first' was applied to a file (Run the task at debug level to see details)
-[debug] SHA-1: 2cff02d4183a1468b460bd219196b7bab4d4344a
+[debug] SHA-1: 99b191bac682a6ef310b319254b17982544dfdc0
 [debug] Packaging C:\Users\LuisHernandoCorreaZa\Documents\IntelliJ Proyects\0080_STREAMING_EB\target\scala-2.11\0XXX_TRAF_STREAMING_EB-assembly-0.1.jar ...
 [debug] Input file mappings:
 [debug] 	LICENSE

@@ -36,6 +36,7 @@ object app {
     Logger.getLogger("org").setLevel(Level.ERROR)
     //===============================================
 
+
     //Read sh Parameters
     log("Read SH Parameters")
     val parametros = getOptionParameters(mutable.HashMap.empty[Symbol, String], args.toList)
@@ -105,7 +106,6 @@ object app {
         throw new Exception("No hay registos de estaciones base")
       }
 
-
       log("total estaciones base: " + total_EB)
       Estacion_base_df.createOrReplaceTempView("tiendas")
       //===============================================
@@ -132,7 +132,6 @@ object app {
       //Tabla de Clientes
       val clientes = ss.sql("select '57'||tele_numb as tele_numb, estado, tipo_linea from clientes.inh_seg_bscs_clientes where estado = 'a'")
       clientes.createOrReplaceTempView("tabla_clientes")
-
 
 
 
@@ -165,12 +164,13 @@ object app {
 
       val trafico = stream.map(record => record.value)
 
+
       trafico.foreachRDD { rdd =>
         import ss.implicits._
         val df = new SimpleDateFormat("yyyyMMddHHmmss")
         val calendar = Calendar.getInstance()
         val fecha_reporte = df.format(calendar.getTime)
-        calendar.add(Calendar.MINUTE, -60);
+        calendar.add(Calendar.MINUTE, -120);
         val time_stream = df.format(calendar.getTime).toDouble
         print(".")
         val df_trafico = rdd.toDF("msg")
@@ -226,7 +226,8 @@ object app {
             .withColumn("idLac", split(col("valor"), ",").getItem(6))
 
           log("total trafico datos entrante: " + df_datos.count())
-          //df_datos.show(10)
+
+          log("Time Stream: " + time_stream)
 
           val trafico_datos_tmp = df_datos.filter(col("time_stream").>(time_stream)).createOrReplaceTempView("trafico_datos_tmp")
 
@@ -234,6 +235,8 @@ object app {
             "row_number() over (partition by tele_numb, cellId, idLac  order by record_opening_time desc) as order_trafico " +
             "FROM  trafico_datos_tmp ) select tele_numb, cellId , idLac, record_opening_time from trafico_d  where order_trafico =1 and tele_numb like '57%'")
           trafico_datos.createOrReplaceTempView("trafico_datos")
+
+
 
           val total_traf_datos_reciente = trafico_datos.count()
           log("total trafico reciente datos: " + total_traf_datos_reciente)
@@ -276,7 +279,8 @@ object app {
             }
 
           }
-            //===============================================
+
+          //===============================================
           //VOZ
           //===============================================
           log("---VOZ-------------------------------------------------")
@@ -318,7 +322,6 @@ object app {
             trafico_cercano_voz.createOrReplaceTempView("trafico_general_voz")
             val Num_TCV = trafico_cercano_voz.count()
             log("total tráfico cercano: " + Num_TCV)
-
 
 
 
