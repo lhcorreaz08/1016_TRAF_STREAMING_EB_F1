@@ -22,7 +22,7 @@
 [debug] compilation cycle 1
 [info] compiling 1 Scala source to C:\Users\LuisHernandoCorreaZa\Documents\IntelliJ Proyects\0080_STREAMING_EB\target\scala-2.11\classes ...
 [debug] Getting org.scala-sbt:compiler-bridge_2.11:1.4.3:compile for Scala 2.11.8
-[debug] [zinc] Running cached compiler 641732fb for Scala compiler version 2.11.8
+[debug] [zinc] Running cached compiler 325ebd62 for Scala compiler version 2.11.8
 [debug] [zinc] The Scala compiler is invoked with:
 [debug] 	-bootclasspath
 [debug] 	C:\Program Files\Java\jdk1.8.0_271\jre\lib\resources.jar;C:\Program Files\Java\jdk1.8.0_271\jre\lib\rt.jar;C:\Program Files\Java\jdk1.8.0_271\jre\lib\sunrsasign.jar;C:\Program Files\Java\jdk1.8.0_271\jre\lib\jsse.jar;C:\Program Files\Java\jdk1.8.0_271\jre\lib\jce.jar;C:\Program Files\Java\jdk1.8.0_271\jre\lib\charsets.jar;C:\Program Files\Java\jdk1.8.0_271\jre\lib\jfr.jar;C:\Program Files\Java\jdk1.8.0_271\jre\classes;C:\Users\LuisHernandoCorreaZa\AppData\Local\Coursier\cache\v1\https\repo1.maven.org\maven2\org\scala-lang\scala-library\2.11.8\scala-library-2.11.8.jar
@@ -34,5 +34,5 @@
 [debug] Final step, transitive dependencies:
 [debug] 	Set()
 [debug] No classes were invalidated.
-[debug] Scala compilation took 2.1438857 s
+[debug] Scala compilation took 7.5997666 s
 [info] done compiling

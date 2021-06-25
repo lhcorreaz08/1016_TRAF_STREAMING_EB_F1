@@ -37,6 +37,7 @@ object app {
     //===============================================
 
 
+
     //Read sh Parameters
     log("Read SH Parameters")
     val parametros = getOptionParameters(mutable.HashMap.empty[Symbol, String], args.toList)
@@ -175,189 +176,207 @@ object app {
         print(".")
         val df_trafico = rdd.toDF("msg")
 
-        if (!cargado)
-        {
-          if (actual_date != sysdate)
+
+        var dT = Calendar.getInstance()
+        var currentMinute = dT.get(Calendar.MINUTE)
+        var currentHour = dT.get(Calendar.HOUR_OF_DAY)
+
+
+        log ("HORA ACTUAL: " + currentHour )
+        if (17>=currentHour){
+
+          if (!cargado)
           {
-            actual_date = sysdate
-            //Carga de tabla maestra
-            val df = ss.read
-              .format("csv")
-              .option("header", true)
-              .option("delimiter", "|")
-              .load("/DWH/DESARROLLO_DWH/12_TRAFICO/1016_TRAF_ESTACIONES_BASE/03_FUENTES/JUAN_V_EB.csv")
-            df.createOrReplaceTempView("Plane_Text_df")
+            if (actual_date != sysdate)
+            {
+              actual_date = sysdate
+              //Carga de tabla maestra
+              val df = ss.read
+                .format("csv")
+                .option("header", true)
+                .option("delimiter", "|")
+                .load("/DWH/DESARROLLO_DWH/12_TRAFICO/1016_TRAF_ESTACIONES_BASE/03_FUENTES/JUAN_V_EB.csv")
+              df.createOrReplaceTempView("Plane_Text_df")
 
-            val drop_table = ss.sql("DROP TABLE desarrollo.Test_Carga_EB")
-            log("Tabla Desactualizada")
-            val table_spark = ss.sql("CREATE TABLE desarrollo.Test_Carga_EB (SELECT * FROM Plane_Text_df)")
-            table_spark.show(10)
-            cargado = true
-            log("Archivo de Estaciones Base Cargado...")
-            log("Tabla Cargada")
+              val drop_table = ss.sql("DROP TABLE desarrollo.Test_Carga_EB")
+              log("Tabla Desactualizada")
+              val table_spark = ss.sql("CREATE TABLE desarrollo.Test_Carga_EB (SELECT * FROM Plane_Text_df)")
+              table_spark.show(10)
+              cargado = true
+              log("Archivo de Estaciones Base Cargado...")
+              log("Tabla Cargada")
 
+            }
           }
+          else
+          {
+            log("Archivo de Estaciones Base Cargado Anteriormente")
+          }
+
+
+
+          if (df_trafico.count() > 0) {
+            log("Total trafico: " + df_trafico.count())
+
+            //===============================================
+            // DATOS
+            //===============================================
+            log("---DATOS-------------------------------------------------")
+            Try {
+              val r = Seq("hdfs", "dfs", "-rm", path_preprocesados_tmp).!!
+            }
+            val df_datos = df_trafico.withColumn("valor", regexp_replace($"msg", "'", ""))
+              .filter(col("valor").contains("DATOS"))
+              .withColumn("tele_numb", split(col("valor"), ",").getItem(1))
+              .withColumn("imsi", split(col("valor"), ",").getItem(2))
+              .withColumn("imei", split(col("valor"), ",").getItem(3))
+              .withColumn("record_opening_time", split(col("valor"), ",").getItem(4))
+              .withColumn("time_stream", split(col("valor"), ",").getItem(4).cast("Double"))
+              .withColumn("cellId", split(col("valor"), ",").getItem(5))
+              .withColumn("idLac", split(col("valor"), ",").getItem(6))
+
+            log("total trafico datos entrante: " + df_datos.count())
+
+            log("Time Stream: " + time_stream)
+
+            val trafico_datos_tmp = df_datos.filter(col("time_stream").>(time_stream)).createOrReplaceTempView("trafico_datos_tmp")
+
+            val trafico_datos = ss.sql("with trafico_d as(select tele_numb , trim(cellId) cellId  , trim(idLac) idLac, record_opening_time, " +
+              "row_number() over (partition by tele_numb, cellId, idLac  order by record_opening_time desc) as order_trafico " +
+              "FROM  trafico_datos_tmp ) select tele_numb, cellId , idLac, record_opening_time from trafico_d  where order_trafico =1 and tele_numb like '57%'")
+            trafico_datos.createOrReplaceTempView("trafico_datos")
+
+
+
+            val total_traf_datos_reciente = trafico_datos.count()
+            log("total trafico reciente datos: " + total_traf_datos_reciente)
+            if (total_traf_datos_reciente > 0) {
+              trafico_datos.show(10)
+              val trafico_cercano_datos = ss.sql("select tc.tipo_linea ,tr.tele_numb from  trafico_datos tr inner join tiendas_datos td " +
+                "on td.celda= tr.cellId and td.lac = tr.idLac inner join tabla_clientes tc on tr.tele_numb = tc.tele_numb")
+              trafico_cercano_datos.createOrReplaceTempView("trafico_general_datos")
+              val Num_TCD = trafico_cercano_datos.count()
+              log("total tráfico cercano: " + Num_TCD)
+
+
+              //Tráfico cercano datos prepago
+              val trafico_segmento_datos_prep = ss.sql("select tgd.tele_numb || '|jvaldez|' from trafico_general_datos tgd where tipo_linea = 'Prepago'")
+              val Num_TCDPre = trafico_segmento_datos_prep.count()
+              log("total tráfico cercano prepago: " + Num_TCDPre)
+              trafico_segmento_datos_prep.show(5)
+
+              if (Num_TCDPre > 0) {
+                Try {
+                  val r = Seq("hdfs", "dfs", "-rm", path_preprocesados + "/TMP/*").!!
+                }
+                generateFile(trafico_segmento_datos_prep, path_preprocesados + "/TMP" , Nombre_archivo + fecha_reporte + "_PREP", ss, ss.sparkContext, path_procesados)
+                log("Archivo prepago generado")
+              }
+
+              //Tráfico cercano datos postpago
+              val trafico_segmento_datos_post = ss.sql("select tgd.tele_numb || '|jvaldez|' from trafico_general_datos tgd where tipo_linea = 'Postpago'")
+              trafico_segmento_datos_post.count()
+              val Num_TCDPos = trafico_segmento_datos_post.count()
+              log("total tráfico cercano postpago: " + Num_TCDPos)
+              trafico_segmento_datos_post.show(5)
+
+              if (Num_TCDPos > 0) {
+                Try {
+                  val r = Seq("hdfs", "dfs", "-rm", path_preprocesados + "/TMP/*").!!
+                }
+                generateFile(trafico_segmento_datos_post, path_preprocesados + "/TMP", Nombre_archivo + fecha_reporte + "_POST", ss, ss.sparkContext, path_procesados)
+                log("Archivo postpago generado")
+              }
+
+            }
+
+            //===============================================
+            //VOZ
+            //===============================================
+            log("---VOZ-------------------------------------------------")
+            Try {
+              val r = Seq("hdfs", "dfs", "-rm", path_preprocesados_tmp).!!
+            }
+            val df_voz = df_trafico.filter(col("msg").contains("VOZ"))
+              .withColumn("calling_number", split(col("msg"), ",").getItem(1))
+              .withColumn("called_number", split(col("msg"), ",").getItem(2))
+              .withColumn("call_type", split(col("msg"), ",").getItem(3))
+              .withColumn("imei", split(col("msg"), ",").getItem(4))
+              .withColumn("imsi", split(col("msg"), ",").getItem(5))
+              .withColumn("start_time", split(col("msg"), ",").getItem(6))
+              .withColumn("time_stream", split(col("msg"), ",").getItem(6).cast("Double"))
+              .withColumn("cellId", split(col("msg"), ",").getItem(7))
+              .withColumn("idLac", split(col("msg"), ",").getItem(8))
+
+            log("total trafico voz entrante: " + df_voz.count())
+            val trafico_voz_tmp = df_voz.filter(col("time_stream").>(time_stream)).createOrReplaceTempView("trafico_voz_tmp")
+            val test = ss.sql("select start_time from trafico_voz_tmp")
+            test.show(10)
+
+            val trafico_voz = ss.sql("with trafico_v as(select case " +
+              "when call_type in ( '01','13') then calling_number else called_number end as tele_numb, " +
+              "cellId , idLac, start_time FROM  trafico_voz_tmp), " +
+              "trafico_ordenado as (select tele_numb, cellId , idLac, start_time, " +
+              "row_number() over (partition by tele_numb, cellId, idLac  order by start_time desc) as order_trafico from trafico_v) " +
+              " select * from trafico_ordenado where order_trafico = 1")
+            trafico_voz.createOrReplaceTempView("trafico_voz")
+
+            val total_traf_voz_reciente = trafico_voz.count()
+            log("total trafico reciente voz: " + total_traf_voz_reciente)
+
+
+            if (total_traf_voz_reciente > 0) {
+              trafico_voz.show(10)
+              val trafico_cercano_voz = ss.sql("select tc.tipo_linea, tv.tele_numb from  trafico_voz tv inner join tiendas_voz ta " +
+                "on ta.celda= tv.cellId and ta.lac = tv.idLac inner join tabla_clientes tc on tv.tele_numb = tc.tele_numb")
+              trafico_cercano_voz.createOrReplaceTempView("trafico_general_voz")
+              val Num_TCV = trafico_cercano_voz.count()
+              log("total tráfico cercano: " + Num_TCV)
+
+
+
+              //Tráfico segmentación Prepago Voz
+              val trafico_segmento_voz_prepago = ss.sql("select tgv.tele_numb || '|jvaldez|' from trafico_general_voz tgv where tipo_linea = 'Prepago'")
+              val Num_TCVPre = trafico_segmento_voz_prepago.count()
+              log("total tráfico cercano prepago: " + Num_TCVPre)
+              trafico_segmento_voz_prepago.show(5)
+
+
+              if (Num_TCVPre > 0) {
+                Try {
+                  val r = Seq("hdfs", "dfs", "-rm", path_preprocesados + "/TMP/*").!!
+                }
+                generateFile(trafico_segmento_voz_prepago, path_preprocesados + "/TMP", Nombre_archivo + fecha_reporte + "_PREP", ss, ss.sparkContext, path_procesados)
+                log("Archivo prepago generado")
+              }
+
+
+              //Tráfico segmentación Postpago Voz
+              val trafico_segmento_voz_postpago = ss.sql("select tgv.tele_numb || '|jvaldez|' from trafico_general_voz tgv where tipo_linea = 'Postpago'")
+              val Num_TCVPos = trafico_segmento_voz_postpago.count()
+              log("total tráfico cercano postpago: " + Num_TCVPre)
+              trafico_segmento_voz_prepago.show(5)
+
+
+              if (Num_TCVPos > 0) {
+                Try {
+                  val r = Seq("hdfs", "dfs", "-rm", path_preprocesados + "/TMP/*").!!
+                }
+                generateFile(trafico_segmento_voz_postpago, path_preprocesados + "/TMP", Nombre_archivo + fecha_reporte + "_POST", ss, ss.sparkContext, path_procesados)
+                log("Archivo postpago generado")
+              }
+
+            }
+          }
+
+
+        }else{
+
+          sys.exit()
+
         }
-        else
-        {
-          log("Archivo de Estaciones Base Cargado Anteriormente")
-        }
 
 
-
-        if (df_trafico.count() > 0) {
-          log("Total trafico: " + df_trafico.count())
-
-          //===============================================
-          // DATOS
-          //===============================================
-          log("---DATOS-------------------------------------------------")
-          Try {
-            val r = Seq("hdfs", "dfs", "-rm", path_preprocesados_tmp).!!
-          }
-          val df_datos = df_trafico.withColumn("valor", regexp_replace($"msg", "'", ""))
-            .filter(col("valor").contains("DATOS"))
-            .withColumn("tele_numb", split(col("valor"), ",").getItem(1))
-            .withColumn("imsi", split(col("valor"), ",").getItem(2))
-            .withColumn("imei", split(col("valor"), ",").getItem(3))
-            .withColumn("record_opening_time", split(col("valor"), ",").getItem(4))
-            .withColumn("time_stream", split(col("valor"), ",").getItem(4).cast("Double"))
-            .withColumn("cellId", split(col("valor"), ",").getItem(5))
-            .withColumn("idLac", split(col("valor"), ",").getItem(6))
-
-          log("total trafico datos entrante: " + df_datos.count())
-
-          log("Time Stream: " + time_stream)
-
-          val trafico_datos_tmp = df_datos.filter(col("time_stream").>(time_stream)).createOrReplaceTempView("trafico_datos_tmp")
-
-          val trafico_datos = ss.sql("with trafico_d as(select tele_numb , trim(cellId) cellId  , trim(idLac) idLac, record_opening_time, " +
-            "row_number() over (partition by tele_numb, cellId, idLac  order by record_opening_time desc) as order_trafico " +
-            "FROM  trafico_datos_tmp ) select tele_numb, cellId , idLac, record_opening_time from trafico_d  where order_trafico =1 and tele_numb like '57%'")
-          trafico_datos.createOrReplaceTempView("trafico_datos")
-
-
-
-          val total_traf_datos_reciente = trafico_datos.count()
-          log("total trafico reciente datos: " + total_traf_datos_reciente)
-          if (total_traf_datos_reciente > 0) {
-            trafico_datos.show(10)
-            val trafico_cercano_datos = ss.sql("select tc.tipo_linea ,tr.tele_numb from  trafico_datos tr inner join tiendas_datos td " +
-              "on td.celda= tr.cellId and td.lac = tr.idLac inner join tabla_clientes tc on tr.tele_numb = tc.tele_numb")
-            trafico_cercano_datos.createOrReplaceTempView("trafico_general_datos")
-            val Num_TCD = trafico_cercano_datos.count()
-            log("total tráfico cercano: " + Num_TCD)
-
-
-            //Tráfico cercano datos prepago
-            val trafico_segmento_datos_prep = ss.sql("select tgd.tele_numb || '|jvaldez|' from trafico_general_datos tgd where tipo_linea = 'Prepago'")
-            val Num_TCDPre = trafico_segmento_datos_prep.count()
-            log("total tráfico cercano prepago: " + Num_TCDPre)
-            trafico_segmento_datos_prep.show(5)
-
-            if (Num_TCDPre > 0) {
-              Try {
-                val r = Seq("hdfs", "dfs", "-rm", path_preprocesados + "/TMP/*").!!
-              }
-              generateFile(trafico_segmento_datos_prep, path_preprocesados + "/TMP" , Nombre_archivo + fecha_reporte + "_PREP", ss, ss.sparkContext, path_procesados)
-              log("Archivo prepago generado")
-            }
-
-            //Tráfico cercano datos postpago
-            val trafico_segmento_datos_post = ss.sql("select tgd.tele_numb || '|jvaldez|' from trafico_general_datos tgd where tipo_linea = 'Postpago'")
-            trafico_segmento_datos_post.count()
-            val Num_TCDPos = trafico_segmento_datos_post.count()
-            log("total tráfico cercano postpago: " + Num_TCDPos)
-            trafico_segmento_datos_post.show(5)
-
-            if (Num_TCDPos > 0) {
-              Try {
-                val r = Seq("hdfs", "dfs", "-rm", path_preprocesados + "/TMP/*").!!
-              }
-              generateFile(trafico_segmento_datos_post, path_preprocesados + "/TMP", Nombre_archivo + fecha_reporte + "_POST", ss, ss.sparkContext, path_procesados)
-              log("Archivo postpago generado")
-            }
-
-          }
-
-          //===============================================
-          //VOZ
-          //===============================================
-          log("---VOZ-------------------------------------------------")
-          Try {
-            val r = Seq("hdfs", "dfs", "-rm", path_preprocesados_tmp).!!
-            }
-          val df_voz = df_trafico.filter(col("msg").contains("VOZ"))
-            .withColumn("calling_number", split(col("msg"), ",").getItem(1))
-            .withColumn("called_number", split(col("msg"), ",").getItem(2))
-            .withColumn("call_type", split(col("msg"), ",").getItem(3))
-            .withColumn("imei", split(col("msg"), ",").getItem(4))
-            .withColumn("imsi", split(col("msg"), ",").getItem(5))
-            .withColumn("start_time", split(col("msg"), ",").getItem(6))
-            .withColumn("time_stream", split(col("msg"), ",").getItem(6).cast("Double"))
-            .withColumn("cellId", split(col("msg"), ",").getItem(7))
-            .withColumn("idLac", split(col("msg"), ",").getItem(8))
-
-          log("total trafico voz entrante: " + df_voz.count())
-          val trafico_voz_tmp = df_voz.filter(col("time_stream").>(time_stream)).createOrReplaceTempView("trafico_voz_tmp")
-          val test = ss.sql("select start_time from trafico_voz_tmp")
-          test.show(10)
-
-          val trafico_voz = ss.sql("with trafico_v as(select case " +
-            "when call_type in ( '01','13') then calling_number else called_number end as tele_numb, " +
-            "cellId , idLac, start_time FROM  trafico_voz_tmp), " +
-            "trafico_ordenado as (select tele_numb, cellId , idLac, start_time, " +
-            "row_number() over (partition by tele_numb, cellId, idLac  order by start_time desc) as order_trafico from trafico_v) " +
-            " select * from trafico_ordenado where order_trafico = 1")
-          trafico_voz.createOrReplaceTempView("trafico_voz")
-
-          val total_traf_voz_reciente = trafico_voz.count()
-          log("total trafico reciente voz: " + total_traf_voz_reciente)
-
-
-          if (total_traf_voz_reciente > 0) {
-            trafico_voz.show(10)
-            val trafico_cercano_voz = ss.sql("select tc.tipo_linea, tv.tele_numb from  trafico_voz tv inner join tiendas_voz ta " +
-              "on ta.celda= tv.cellId and ta.lac = tv.idLac inner join tabla_clientes tc on tv.tele_numb = tc.tele_numb")
-            trafico_cercano_voz.createOrReplaceTempView("trafico_general_voz")
-            val Num_TCV = trafico_cercano_voz.count()
-            log("total tráfico cercano: " + Num_TCV)
-
-
-
-            //Tráfico segmentación Prepago Voz
-            val trafico_segmento_voz_prepago = ss.sql("select tgv.tele_numb || '|jvaldez|' from trafico_general_voz tgv where tipo_linea = 'Prepago'")
-            val Num_TCVPre = trafico_segmento_voz_prepago.count()
-            log("total tráfico cercano prepago: " + Num_TCVPre)
-            trafico_segmento_voz_prepago.show(5)
-
-
-            if (Num_TCVPre > 0) {
-              Try {
-                val r = Seq("hdfs", "dfs", "-rm", path_preprocesados + "/TMP/*").!!
-              }
-              generateFile(trafico_segmento_voz_prepago, path_preprocesados + "/TMP", Nombre_archivo + fecha_reporte + "_PREP", ss, ss.sparkContext, path_procesados)
-              log("Archivo prepago generado")
-            }
-
-
-            //Tráfico segmentación Postpago Voz
-            val trafico_segmento_voz_postpago = ss.sql("select tgv.tele_numb || '|jvaldez|' from trafico_general_voz tgv where tipo_linea = 'Postpago'")
-            val Num_TCVPos = trafico_segmento_voz_postpago.count()
-            log("total tráfico cercano postpago: " + Num_TCVPre)
-            trafico_segmento_voz_prepago.show(5)
-
-
-            if (Num_TCVPos > 0) {
-              Try {
-                val r = Seq("hdfs", "dfs", "-rm", path_preprocesados + "/TMP/*").!!
-              }
-              generateFile(trafico_segmento_voz_postpago, path_preprocesados + "/TMP", Nombre_archivo + fecha_reporte + "_POST", ss, ss.sparkContext, path_procesados)
-              log("Archivo postpago generado")
-            }
-
-          }
-        }
       }
       streamingContext.start()
       streamingContext.awaitTermination()
